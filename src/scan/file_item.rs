@@ -1,5 +1,14 @@
+use super::FileTimes;
+use super::specific_info::SpecificInfo;
 use serde::{Deserialize, Serialize};
-use std::{ops::RangeInclusive, path::PathBuf, time::SystemTime};
+use std::{ops::RangeInclusive, path::PathBuf};
+
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum FileType {
+    Regular,
+    Dir,
+    Symlink,
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct FileItem {
@@ -7,7 +16,7 @@ pub struct FileItem {
     name: String,
     parent: Option<usize>,
     info: SpecificInfo,
-    times: SystemTimes
+    times: FileTimes,
 }
 
 impl FileItem {
@@ -20,7 +29,7 @@ impl FileItem {
     pub fn name(&self) -> &str {
         &self.name
     }
-    pub fn times(&self) -> &SystemTimes {
+    pub fn times(&self) -> &FileTimes {
         &self.times
     }
     pub fn file_type(&self) -> FileType {
@@ -37,7 +46,7 @@ impl FileItem {
     pub fn childs(&self) -> Option<RangeInclusive<usize>> {
         match &self.info {
             SpecificInfo::Dir(dir) => Some(dir.childs.clone()),
-            _ => None
+            _ => None,
         }
     }
 }
@@ -46,7 +55,7 @@ pub struct FileItemBuilder {
     pub id: usize,
     pub path: PathBuf,
     pub parent: Option<usize>,
-    pub info: Option<SpecificInfo>
+    pub info: Option<SpecificInfo>,
 }
 
 impl FileItemBuilder {
@@ -55,7 +64,7 @@ impl FileItemBuilder {
             id: id,
             path: path,
             parent: None,
-            info: None
+            info: None,
         }
     }
     pub fn parent(&mut self, parent: usize) {
@@ -66,84 +75,21 @@ impl FileItemBuilder {
     }
     pub fn build(self) -> FileItem {
         let name = self.path.file_name().unwrap().to_str().unwrap().to_owned();
-        let times = self.path.metadata().ok().map(|meta| SystemTimes::from(meta)).unwrap_or_default();
+        let times = self.path.metadata().ok().map(|meta| FileTimes::from(meta)).unwrap_or_default();
         FileItem {
             id: self.id,
             name: name,
             parent: self.parent,
             info: self.info.expect("[FileItemBuilder] `info` is required field"),
-            times: times
-        }
-    }
-}
-
-#[derive(Default, Serialize, Deserialize)]
-pub struct SystemTimes {
-    pub created: Option<SystemTime>,
-    pub modified: Option<SystemTime>,
-    pub accessed: Option<SystemTime>,
-}
-
-impl From<std::fs::Metadata> for SystemTimes {
-    fn from(value: std::fs::Metadata) -> Self {
-        Self {
-            created: value.created().ok(),
-            modified: value.modified().ok(),
-            accessed: value.accessed().ok(),
-        }
-    }
-}
-
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum FileType {
-    Regular,
-    Dir,
-    Symlink
-}
-
-#[derive(Serialize, Deserialize)]
-pub enum SpecificInfo {
-    Inaccessible(FileType),
-    Regular(RegularInfo),
-    Dir(DirInfo),
-    Symlink(SymlinkInfo)
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct RegularInfo {
-    md5: String
-}
-
-impl RegularInfo {
-    pub fn new(md5: String) -> Self {
-        Self {
-            md5: md5
+            times: times,
         }
     }
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct DirInfo {
-    childs: RangeInclusive<usize>,
-}
-
-impl DirInfo {
-    pub fn new(start: usize, end: usize) -> Self {
-        Self {
-            childs: start..=end
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct SymlinkInfo {
-    target: Option<usize>
-}
-
-impl SymlinkInfo {
-    pub fn new(target: Option<usize>) -> Self {
-        Self {
-            target: target
-        }
-    }
+pub struct PlainFileItem {
+    id: usize,
+    path: String,
+    file_type: FileType,
+    times: FileTimes,
 }

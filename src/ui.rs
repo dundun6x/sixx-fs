@@ -1,12 +1,12 @@
 pub mod base;
-pub mod file_view;
 pub mod consts;
 
-pub use base::*;
+mod file_view;
 pub use file_view::FileViewError;
 
-use self::file_view::file_view;
-use crate::scan::{FileItem, scan};
+use base::*;
+use file_view::file_view;
+use crate::scan::{scan, FileItem, ScanError};
 use iced::{
     Alignment, Length, Task,
     widget::{button, column, container, horizontal_rule, horizontal_space, row, text, text_input},
@@ -15,6 +15,12 @@ use std::path::Path;
 
 pub fn setup() -> iced::Result {
     iced::application("File Info Scanner", update, view)
+        .settings(iced::Settings {
+            fonts: vec![include_bytes!("../assets/SourceHanSansSC-Regular.otf").into()],
+            default_font: iced::Font::with_name("Source Han Sans SC"),
+            default_text_size: iced::Pixels(13.),
+            ..Default::default()
+        })
         .window(iced::window::Settings {
             size: iced::Size::new(600., 150.),
             ..iced::window::Settings::default()
@@ -84,36 +90,12 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
         }),
         Message::ConfirmScan => {
             clear_file_view(state);
-            let scan_path = Path::new(&state.scan_path);
-            let save_path = Path::new(&state.save_path);
-            match scan_path.is_dir() && save_path.is_file() {
-                false => state.file_view_error = Some(FileViewError::InvalidScanPath),
-                true => match scan(&scan_path, state.scan_limit) {
-                    Err(error) => state.file_view_error = Some(FileViewError::ScanError(error)),
-                    Ok(file_items) => match std::fs::write(save_path, serde_json::to_string(&file_items).unwrap()) {
-                        Err(error) => state.file_view_error = Some(FileViewError::FileIoError(error.to_string())),
-                        Ok(_) => state.file_items = Some(file_items),
-                    },
-                },
-            }
+            confirm_scan(state);
             Task::none()
         }
         Message::ConfirmLoad => {
             clear_file_view(state);
-            let load_path = Path::new(&state.load_path);
-            match load_path.is_file() {
-                false => state.file_view_error = Some(FileViewError::InvalidLoadPath),
-                true => match std::fs::read(load_path) {
-                    Err(error) => state.file_view_error = Some(FileViewError::FileIoError(error.to_string())),
-                    Ok(content) => match String::from_utf8(content) {
-                        Err(_) => state.file_view_error = Some(FileViewError::InvalidLoadContent),
-                        Ok(string) => match serde_json::from_str::<Vec<FileItem>>(&string) {
-                            Err(_) => state.file_view_error = Some(FileViewError::InvalidLoadContent),
-                            Ok(file_items) => state.file_items = Some(file_items),
-                        },
-                    },
-                },
-            }
+            confirm_load(state);
             Task::none()
         }
         Message::ClearFileView => {
@@ -131,4 +113,39 @@ fn clear_file_view(state: &mut State) {
     state.file_items = None;
     state.file_view_error = None;
     state.file_view_current = 0;
+}
+
+fn confirm_scan(state: &mut State) {
+    let scan_path = Path::new(&state.scan_path);
+    let save_path = Path::new(&state.save_path);
+    match scan_path.is_dir() && save_path.is_file() {
+        false => state.file_view_error = Some(FileViewError::InvalidScanPath),
+        true => match scan(&scan_path, state.scan_limit) {
+            Err(err) => state.file_view_error = Some(match err {
+                ScanError::FileIoError(err) => FileViewError::FileIoError(err),
+                ScanError::LimitReached => FileViewError::ScanLimitReached
+            }),
+            Ok(file_items) => match std::fs::write(save_path, serde_json::to_string(&file_items).unwrap()) {
+                Err(err) => state.file_view_error = Some(FileViewError::FileIoError(err.to_string())),
+                Ok(_) => state.file_items = Some(file_items),
+            }
+        },
+    }
+}
+
+fn confirm_load(state: &mut State) {
+    let load_path = Path::new(&state.load_path);
+    match load_path.is_file() {
+        false => state.file_view_error = Some(FileViewError::InvalidLoadPath),
+        true => match std::fs::read(load_path) {
+            Err(err) => state.file_view_error = Some(FileViewError::FileIoError(err.to_string())),
+            Ok(content) => match String::from_utf8(content) {
+                Err(_) => state.file_view_error = Some(FileViewError::InvalidLoadContent),
+                Ok(string) => match serde_json::from_str::<Vec<FileItem>>(&string) {
+                    Err(_) => state.file_view_error = Some(FileViewError::InvalidLoadContent),
+                    Ok(file_items) => state.file_items = Some(file_items),
+                },
+            },
+        },
+    }
 }

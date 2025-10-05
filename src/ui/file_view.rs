@@ -1,6 +1,6 @@
 use super::base::*;
 use super::consts::{ERROR_COLOR, DIR_COLOR};
-use crate::scan::{file_info, FileItem, FileType, ScanError};
+use crate::scan::{info_string, FileItem, FileType};
 use iced::widget::{button, horizontal_space, scrollable, text, Column, Row};
 use iced::Length;
 
@@ -9,7 +9,7 @@ pub enum FileViewError {
     InvalidScanPath,
     InvalidLoadPath,
     InvalidLoadContent,
-    ScanError(ScanError),
+    ScanLimitReached,
     FileIoError(String),
 }
 
@@ -19,49 +19,42 @@ pub fn file_view(state: &State) -> Container<'_> {
             FileViewError::InvalidScanPath => text("Scan path should be a folder and save path should be a file"),
             FileViewError::InvalidLoadPath => text("Load path should be a file"),
             FileViewError::InvalidLoadContent => text("Invalid content to be loaded"),
-            FileViewError::ScanError(error) => match error {
-                ScanError::IoError(error) => text(format!("File IO error: {}", error)),
-                ScanError::LimitReached => text(format!("Scan limit reached: {}", state.scan_limit)),
-            },
-            FileViewError::FileIoError(error) => text(format!("File IO error: {}", error)),
+            FileViewError::ScanLimitReached => text(format!("Scan limit reached: {}", state.scan_limit)),
+            FileViewError::FileIoError(err) => text(format!("File IO error: {}", err)),
         }
         .color(ERROR_COLOR);
         Container::new(text).center(Length::Fill)
     } else if state.file_items.is_none() {
         Container::new(text("File items or error will be printed here")).center(Length::Fill)
     } else {
-        let mut vectors = Vec::new();
-        for _ in 0..state.file_view_infos.len() {
-            vectors.push(Vec::new());
-        }
+        let mut cols = Vec::new();
+        for _ in 0..state.file_view_infos.len() { cols.push(Vec::new()); }
         let items = state.file_items.as_ref().unwrap();
-        let id = state.file_view_current;
-        let range = items[id].childs().unwrap();
-        let mut part: Vec<_> = items[range].iter().collect();
-        part.sort_by(|itema, itemb| cmp_by_type(itema, itemb));
-        if let Some(parent) = items[id].parent() {
-            vectors[0].push(dir_element("..".to_owned(), parent));
+        let curr = state.file_view_current;
+        let range = items[curr].childs().unwrap();
+        let mut items_view: Vec<_> = items[range].iter().collect();
+        items_view.sort_by(|itema, itemb| cmp_by_type(itema, itemb));
+        if let Some(parent) = items[curr].parent() {
+            cols[0].push(dir_element("..".to_owned(), parent));
             for i in 1..state.file_view_infos.len() {
-                vectors[i].push(text("").into());
+                cols[i].push(text("").into());
             }
-        } else if part.is_empty() {
+        } else if items_view.is_empty() {
             return Container::new(text("No items")).center(Length::Fill);
-        };
-        for item in part {
+        }
+        for item in items_view {
             for i in 0..state.file_view_infos.len() {
-                let info = file_info(item, &state.file_view_infos[i]);
+                let info = info_string(item, &state.file_view_infos[i]);
                 match item.file_type() {
-                    FileType::Dir => vectors[i].push(dir_element(info, item.id())),
-                    _ => vectors[i].push(text(info).into())
+                    FileType::Dir => cols[i].push(dir_element(info, item.id())),
+                    _ => cols[i].push(text(info).wrapping(text::Wrapping::None).into())
                 }
             }
         }
-        let columns: Vec<_> = vectors
-            .into_iter()
-            .map(|vector| Column::from_vec(vector.into_iter().map(|widget| Element::from(widget)).collect()).padding(10))
-            .collect();
-        let elements = columns.into_iter().map(|column| Element::from(column)).collect();
-        let scroll = scrollable(Row::from_vec(elements).push(horizontal_space()));
+        let elems: Vec<_> = cols.into_iter().map(|col| Element::from(
+            Column::from_vec(col).padding(10).clip(true)
+        )).collect();
+        let scroll = scrollable(Row::from_vec(elems).push(horizontal_space()));
         Container::new(scroll).height(Length::Fill).clip(true)
     }
 }
@@ -79,7 +72,7 @@ fn cmp_by_type(itema: &FileItem, itemb: &FileItem) -> std::cmp::Ordering {
 }
 
 fn dir_element(content: String, target: usize) -> Element<'static> {
-    button(text(content).color(DIR_COLOR))
+    button(text(content).wrapping(text::Wrapping::None).color(DIR_COLOR))
         .style(button::text)
         .padding(0)
         .on_press(Message::FileViewCurrent(target))

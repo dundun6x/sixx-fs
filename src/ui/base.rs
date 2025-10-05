@@ -1,5 +1,5 @@
 use super::FileViewError;
-use crate::scan::{FileItem, FileInfos};
+use crate::scan::{FileItem, FileInfo};
 
 pub struct State {
     pub scan_path: String,
@@ -9,7 +9,7 @@ pub struct State {
     pub file_items: Option<Vec<FileItem>>,
     pub file_view_error: Option<FileViewError>,
     pub file_view_current: usize,
-    pub file_view_infos: Vec<FileInfos>
+    pub file_view_infos: Vec<FileInfo>
 }
 
 impl Default for State {
@@ -22,7 +22,7 @@ impl Default for State {
             file_items: None,
             file_view_error: None,
             file_view_current: 0,
-            file_view_infos: vec![FileInfos::Name, FileInfos::Created, FileInfos::Modified, FileInfos::Accessed]
+            file_view_infos: vec![FileInfo::Name, FileInfo::Created, FileInfo::Modified, FileInfo::Accessed]
         }
     }
 }
@@ -43,4 +43,3 @@ pub enum Message {
 
 pub type Element<'a> = iced::Element<'a, Message>;
 pub type Container<'a> = iced::widget::Container<'a, Message>;
-pub type Button<'a> = iced::widget::Button<'a, Message>;
