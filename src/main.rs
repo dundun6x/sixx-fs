@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 
 mod log;
-mod settings;
 mod scan;
 mod ui;
 

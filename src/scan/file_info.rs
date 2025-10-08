@@ -6,6 +6,7 @@ pub enum FileInfo {
     Created,
     Modified,
     Accessed,
+    Md5,
     Media(String)
 }
 
@@ -20,7 +21,8 @@ pub fn info_string(item: &FileItem, name: &FileInfo) -> String {
         FileInfo::Created => stringify_time(item.times().created),
         FileInfo::Modified => stringify_time(item.times().modified),
         FileInfo::Accessed => stringify_time(item.times().accessed),
-        FileInfo::Media(_) => "Not supported yet".to_owned()
+        FileInfo::Md5 => item.md5().unwrap_or_default(),
+        FileInfo::Media(name) => item.meta(name).unwrap_or_default()
     }
 }
 

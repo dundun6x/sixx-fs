@@ -10,7 +10,7 @@ pub fn setup() {
                 message
             ));
         })
-        .level(log::LevelFilter::Warn)
+        .level(log::LevelFilter::Error)
         .level_for(module_path!().split("::").next().unwrap(), log::LevelFilter::Trace)
         .chain(std::io::stdout())
         .apply();

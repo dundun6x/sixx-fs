@@ -1,12 +1,12 @@
 pub mod base;
 pub mod consts;
 
-mod file_view;
-pub use file_view::FileViewError;
+mod scan_view;
+pub use scan_view::FileViewError;
 
 use base::*;
-use file_view::file_view;
-use crate::scan::{scan, FileItem, ScanError};
+use scan_view::scan_view;
+use crate::scan::{scan, Scan};
 use iced::{
     Alignment, Length, Task,
     widget::{button, column, container, horizontal_rule, horizontal_space, row, text, text_input},
@@ -29,7 +29,6 @@ pub fn setup() -> iced::Result {
 }
 
 fn view(state: &State) -> Element<'_> {
-    let file_view = file_view(state);
     let top = container(column![
         row![
             text("Scan at:").width(80),
@@ -51,7 +50,7 @@ fn view(state: &State) -> Element<'_> {
         .align_y(Alignment::Center),
     ])
     .align_top(Length::Shrink);
-    let middle = file_view;
+    let scan_view = scan_view(state);
     let bottom = container(row![
         horizontal_space(),
         button("Scan").on_press(Message::ConfirmScan),
@@ -59,7 +58,7 @@ fn view(state: &State) -> Element<'_> {
         button("Clear").on_press(Message::ClearFileView)
     ])
     .align_bottom(Length::Shrink);
-    column![top, horizontal_rule(2), middle, horizontal_rule(2), bottom].into()
+    column![top, horizontal_rule(2), scan_view, horizontal_rule(2), bottom].into()
 }
 
 fn update(state: &mut State, message: Message) -> Task<Message> {
@@ -110,7 +109,7 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
 }
 
 fn clear_file_view(state: &mut State) {
-    state.file_items = None;
+    state.scan = None;
     state.file_view_error = None;
     state.file_view_current = 0;
 }
@@ -120,14 +119,11 @@ fn confirm_scan(state: &mut State) {
     let save_path = Path::new(&state.save_path);
     match scan_path.is_dir() && save_path.is_file() {
         false => state.file_view_error = Some(FileViewError::InvalidScanPath),
-        true => match scan(&scan_path, state.scan_limit) {
-            Err(err) => state.file_view_error = Some(match err {
-                ScanError::FileIoError(err) => FileViewError::FileIoError(err),
-                ScanError::LimitReached => FileViewError::ScanLimitReached
-            }),
-            Ok(file_items) => match std::fs::write(save_path, serde_json::to_string(&file_items).unwrap()) {
+        true => match scan(&scan_path, &state.scan_settings) {
+            Err(err) => state.file_view_error = Some(FileViewError::FileIoError(err)),
+            Ok(scan) => match std::fs::write(save_path, serde_json::to_string(&scan).unwrap()) {
                 Err(err) => state.file_view_error = Some(FileViewError::FileIoError(err.to_string())),
-                Ok(_) => state.file_items = Some(file_items),
+                Ok(_) => state.scan = Some(scan),
             }
         },
     }
@@ -141,9 +137,9 @@ fn confirm_load(state: &mut State) {
             Err(err) => state.file_view_error = Some(FileViewError::FileIoError(err.to_string())),
             Ok(content) => match String::from_utf8(content) {
                 Err(_) => state.file_view_error = Some(FileViewError::InvalidLoadContent),
-                Ok(string) => match serde_json::from_str::<Vec<FileItem>>(&string) {
+                Ok(string) => match serde_json::from_str::<Scan>(&string) {
                     Err(_) => state.file_view_error = Some(FileViewError::InvalidLoadContent),
-                    Ok(file_items) => state.file_items = Some(file_items),
+                    Ok(scan) => state.scan = Some(scan),
                 },
             },
         },

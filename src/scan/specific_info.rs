@@ -12,15 +12,8 @@ pub enum SpecificInfo {
 
 #[derive(Serialize, Deserialize)]
 pub struct RegularInfo {
-    pub md5: String
-}
-
-impl RegularInfo {
-    pub fn new(md5: String) -> Self {
-        Self {
-            md5: md5
-        }
-    }
+    pub md5: String,
+    pub metas: Vec<(String, String)>
 }
 
 #[derive(Serialize, Deserialize)]
@@ -39,12 +32,4 @@ impl DirInfo {
 #[derive(Serialize, Deserialize)]
 pub struct SymlinkInfo {
     pub target: Option<usize>
-}
-
-impl SymlinkInfo {
-    pub fn new(target: Option<usize>) -> Self {
-        Self {
-            target: target
-        }
-    }
 }

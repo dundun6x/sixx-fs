@@ -44,10 +44,26 @@ impl FileItem {
         self.file_type() == FileType::Dir
     }
     pub fn childs(&self) -> Option<RangeInclusive<usize>> {
-        match &self.info {
-            SpecificInfo::Dir(dir) => Some(dir.childs.clone()),
-            _ => None,
+        if let SpecificInfo::Dir(dir) = &self.info { 
+            return Some(dir.childs.clone());
         }
+        None
+    }
+    pub fn md5(&self) -> Option<String> {
+        if let SpecificInfo::Regular(regular) = &self.info {
+            return Some(regular.md5.clone());
+        }
+        None
+    }
+    pub fn meta(&self, name: &str) -> Option<String> {
+        if let SpecificInfo::Regular(regular) = &self.info {
+            for meta in &regular.metas {
+                if meta.0 == name {
+                    return Some(meta.1.clone());
+                }
+            }
+        }
+        None
     }
 }
 

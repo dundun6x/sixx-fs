@@ -1,12 +1,12 @@
 use super::FileViewError;
-use crate::scan::{FileItem, FileInfo};
+use crate::scan::{FileInfo, Scan, ScanSettings};
 
 pub struct State {
     pub scan_path: String,
     pub save_path: String,
     pub load_path: String,
-    pub scan_limit: usize,
-    pub file_items: Option<Vec<FileItem>>,
+    pub scan_settings: ScanSettings,
+    pub scan: Option<Scan>,
     pub file_view_error: Option<FileViewError>,
     pub file_view_current: usize,
     pub file_view_infos: Vec<FileInfo>
@@ -14,15 +14,16 @@ pub struct State {
 
 impl Default for State {
     fn default() -> Self {
+        let file_view_infos = vec![FileInfo::Name, FileInfo::Created, FileInfo::Modified, FileInfo::Accessed];
         Self {
             scan_path: String::new(),
             save_path: String::new(),
             load_path: String::new(),
-            scan_limit: 10000,
-            file_items: None,
+            scan_settings: Default::default(),
+            scan: None,
             file_view_error: None,
             file_view_current: 0,
-            file_view_infos: vec![FileInfo::Name, FileInfo::Created, FileInfo::Modified, FileInfo::Accessed]
+            file_view_infos
         }
     }
 }
@@ -38,7 +39,7 @@ pub enum Message {
     ConfirmScan,
     ConfirmLoad,
     ClearFileView,
-    FileViewCurrent(usize),
+    FileViewCurrent(usize)
 }
 
 pub type Element<'a> = iced::Element<'a, Message>;
